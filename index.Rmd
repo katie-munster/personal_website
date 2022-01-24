@@ -1,0 +1,16 @@
+---
+title: "Katie Munster"
+image: "katie_munster.jpg"
+links:
+  - label: LinkedIn
+    url: "https://www.linkedin.com/in/munsterkatie/"
+  - label: GitHub
+    url: "https://github.com/katie-munster"
+  - label: Email
+    url: "mailto:kmunster@bren.ucsb.edu"
+site: distill::distill_website
+output:
+  postcards::trestles
+---
+
+I am a Master's student at the Bren School of Environmental Science & Management, specializing in Coastal Marine Resources Management.
