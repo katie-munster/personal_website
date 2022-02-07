@@ -1,6 +1,6 @@
 ---
 title: "Katie Munster"
-image: "katie_munster.jpg"
+image: "katie_munster.JPG"
 links:
   - label: LinkedIn
     url: "https://www.linkedin.com/in/munsterkatie/"
