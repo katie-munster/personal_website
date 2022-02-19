@@ -1,17 +1,19 @@
 name: "."
-title: "mfeo"
+title: "Katie Munster"
 theme: postcards.css
 description: |
-  mfeo
+  Katie Munster
 output_dir: "docs"
 navbar:
   right:
     - text: "Home"
       href: index.html
-    - text: "About"
-      href: about.html
     - text: "About Me"
       href: about_me.html
+    - text: "Portfolio"
+      href: portfolio.html
     - text: "Blog"
       href: blog.html
+    - text: "CV"
+      href: munster_cv.html
 output: distill::distill_article

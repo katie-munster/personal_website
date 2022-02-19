@@ -1,9 +1,11 @@
 ---
 title: "About Me"
 output:
-  postcards::jolla
+  postcards::trestles
 ---
- 
-My experience is in mathematics, data privacy, and data analysis. I previously worked as a Technology Consultant at Ernst & Young, and I recently began my studies at the Bren School to pursue my passions for the environment and solving environmental problems. At Bren, I am specializing in Coastal Marine Resources Management. I am interested in marine conservation and fisheries management and am eager to use my data analysis skills to step enhance natural-resource management.
 
-In my free time, I enjoy spending time by the ocean and doing most water activities. Fishing and stand-up paddle boarding are my favorites! I have grown up fishing in Lake Tahoe, but my favorite place I have fished was off the coast of Maui. 
+#### Professional experience
+My experience is primarily in mathematics, data analysis, and data privacy. I previously worked as a Technology Consultant at Ernst & Young, and I recently began my studies at the Bren School to pursue my passions for the environment and solving environmental problems. At Bren, I am specializing in Coastal Marine Resources Management. I am interested in marine conservation and fisheries management and am eager to use my data analysis skills to enhance natural resource management.
+
+#### Hobbies
+In my free time, I enjoy water activities and spending time by the ocean. Fishing and stand-up paddle boarding are my favorites! I have grown up fishing for rainbow trout and kokanee salmon in Lake Tahoe, but my favorite fishing spot is off the coast of Maui, where I caught a wahoo!

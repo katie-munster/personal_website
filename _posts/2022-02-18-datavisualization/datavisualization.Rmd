@@ -1,0 +1,112 @@
+---
+title: "Data visualization"
+description: |
+  An example of my data visualization skills
+author:
+  - name: Katie Munster
+date: 2022-02-18
+output:
+  distill::distill_article:
+    self_contained: false
+---
+
+Refer to the Portfolio tab for the corresponding HTML document, which includes additional code.
+
+```{r setup, include = TRUE, warning = FALSE, message = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+library(tidyverse)
+library(here)
+library(patchwork)
+library(cowplot)
+library(lubridate)
+```
+
+```{r, include = FALSE}
+# Read in data:
+sierra_amphibians <- readxl::read_excel(here('data', 'sierra_amphibians.xlsx'))
+```
+
+```{r, include = FALSE}
+# Clean the data to filter for adult, subadult, and tadpole Rana muscosa frogs.
+rana_muscosa <- sierra_amphibians %>% 
+  mutate(survey_date = ymd(survey_date)) %>% # convert the date to date format. Checked this with str(rana_muscosa$survey_date) in the console.
+  mutate(year = year(survey_date)) %>% # create a column that only contains the year
+  filter(amphibian_species == "RAMU") %>% # filter only for Rana muscosa species
+  filter(amphibian_life_stage %in% c("SubAdult", "Tadpole", "Adult")) %>%  # exclude 'EggMass' level
+  drop_na(amphibian_number)
+```
+
+```{r, include = FALSE}
+# Calculate the total observations of Rana muscosa frogs each year.
+rana_muscosa_counts <- rana_muscosa %>% 
+  group_by(amphibian_life_stage, year) %>% # Categorize the data by life stage and year
+  summarize(rana_muscosa_count = sum(amphibian_number))
+```
+
+#### Data visualizations
+
+```{r}
+plot1 <- ggplot(data = rana_muscosa_counts, aes(x = as.factor(year), y = rana_muscosa_count)) +
+  geom_col(aes(fill = amphibian_life_stage)) +
+  theme_minimal() +
+  labs(x = "Survey year",
+       y = "Count",
+       title = "Counts of mountain yellow-legged frogs (Rana muscosa)",
+       fill = "Amphibian life stage") +
+  scale_fill_manual(values = c("Tadpole" = "darkolivegreen1",
+                               "SubAdult" = "darkolivegreen3",
+                               "Adult" = "darkolivegreen"),
+                    limits = c("Tadpole", "SubAdult", "Adult")) +
+  theme(plot.background = element_rect(fill = "white"),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray58"))
+
+plot1
+```
+
+**Figure 1.** The count of mountain yellow-legged frog (Rana muscosa) in the Sierra Nevada aquatic ecosystems from the years 1995-2002. The counts are categorized by amphibian life stage (tadpole, subadult, or adult).
+
+```{r, include = FALSE}
+# Clean the data to filter for adult and subadult Rana muscosa frogs.
+rana_muscosa_by_lake <- sierra_amphibians %>% 
+  mutate(survey_date = ymd(survey_date)) %>% # convert the date to date format
+  mutate(year = year(survey_date)) %>% # create a column that only contains the year
+  filter(amphibian_species == "RAMU") %>% # filter only for Rana muscosa species
+  filter(amphibian_life_stage %in% c("SubAdult", "Adult")) # exclude 'EggMass' and 'Tadpole' levels
+  
+rana_muscosa_by_lake$lake_id <- sub("^", "Lake ", rana_muscosa_by_lake$lake_id) # update lake_id column to add a label
+```
+
+```{r, include = FALSE}
+# Calculate the total observations of Rana muscosa frogs at each lake and determine the top five lakes with the greatest total observed counts.
+rana_muscosa_by_lake_counts <- rana_muscosa_by_lake %>% 
+  group_by(lake_id) %>% # Categorize the data by lake_id
+  summarize(rana_muscosa_count = sum(amphibian_number)) %>% 
+  slice_max(rana_muscosa_count, n = 5) %>% 
+  arrange(desc(rana_muscosa_count))
+```
+
+```{r}
+plot2 <- ggplot(data = rana_muscosa_by_lake_counts, aes(x = fct_reorder(lake_id, -rana_muscosa_count), y = rana_muscosa_count)) +
+  geom_col(aes(fill = -rana_muscosa_count)) +
+  theme_minimal() +
+  labs(x = "Lake ID",
+       y = "Count (adult + subadult)",
+       title = "Greatest observed counts of mountain yellow-legged frogs (Rana muscosa)",
+       fill = "Total observed counts") +
+  theme(plot.background = element_rect(fill = "white"),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray58"))
+
+plot2
+```
+
+**Figure 2.** The top five Sierra Nevada lakes with the greatest total observed counts of mountain yellow-legged frog (Rana muscosa) for the years 1995-2002.
+
+```{r}
+# Combine the two graphs into a single compound figure.
+plot1 / plot2
+```
+
+**Figure 3.** From 1995 to 2002, the observed counts of mountain yellow-legged frogs (Rana muscosa) in the tadpole life stage increased and the majority of observations were tadpoles, as compared to subadults and adults. Further analysis illustrates the top 5 lakes with the greatest total observed counts of subadult and adult mountain yellow-legged frogs recorded from 1995 to 2002.

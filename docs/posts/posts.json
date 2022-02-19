@@ -1,8 +1,59 @@
 [
   {
+    "path": "posts/2022-02-18-datavisualization/",
+    "title": "Data visualization",
+    "description": "An example of my data visualization skills",
+    "author": [
+      {
+        "name": "Katie Munster",
+        "url": {}
+      }
+    ],
+    "date": "2022-02-18",
+    "categories": [],
+    "contents": "\nRefer to the Portfolio tab for the corresponding HTML document, which includes additional code.\n\n\nknitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)\n\nlibrary(tidyverse)\nlibrary(here)\nlibrary(patchwork)\nlibrary(cowplot)\nlibrary(lubridate)\n\n\n\nData visualizations\n\n\nplot1 <- ggplot(data = rana_muscosa_counts, aes(x = as.factor(year), y = rana_muscosa_count)) +\n  geom_col(aes(fill = amphibian_life_stage)) +\n  theme_minimal() +\n  labs(x = \"Survey year\",\n       y = \"Count\",\n       title = \"Counts of mountain yellow-legged frogs (Rana muscosa)\",\n       fill = \"Amphibian life stage\") +\n  scale_fill_manual(values = c(\"Tadpole\" = \"darkolivegreen1\",\n                               \"SubAdult\" = \"darkolivegreen3\",\n                               \"Adult\" = \"darkolivegreen\"),\n                    limits = c(\"Tadpole\", \"SubAdult\", \"Adult\")) +\n  theme(plot.background = element_rect(fill = \"white\"),\n        panel.background = element_rect(fill = \"white\"),\n        panel.grid.major = element_line(color = \"gray58\"))\n\nplot1\n\n\n\n\nFigure 1. The count of mountain yellow-legged frog (Rana muscosa) in the Sierra Nevada aquatic ecosystems from the years 1995-2002. The counts are categorized by amphibian life stage (tadpole, subadult, or adult).\n\n\n# Data visualization:\nplot2 <- ggplot(data = rana_muscosa_by_lake_counts, aes(x = fct_reorder(lake_id, -rana_muscosa_count), y = rana_muscosa_count)) +\n  geom_col(aes(fill = -rana_muscosa_count)) +\n  theme_minimal() +\n  labs(x = \"Lake ID\",\n       y = \"Count (adult + subadult)\",\n       title = \"Greatest observed counts of mountain yellow-legged frogs (Rana muscosa)\",\n       fill = \"Total observed counts\") +\n  theme(plot.background = element_rect(fill = \"white\"),\n        panel.background = element_rect(fill = \"white\"),\n        panel.grid.major = element_line(color = \"gray58\"))\n\nplot2\n\n\n\n\nFigure 2. The top five Sierra Nevada lakes with the greatest total observed counts of mountain yellow-legged frog (Rana muscosa) for the years 1995-2002.\n\n\n# Combine the two graphs into a single compound figure.\nplot1 / plot2\n\n\n\n\nFigure 3. From 1995 to 2002, the observed counts of mountain yellow-legged frogs (Rana muscosa) in the tadpole life stage increased and the majority of observations were tadpoles, as compared to subadults and adults. Further analysis illustrates the top 5 lakes with the greatest total observed counts of subadult and adult mountain yellow-legged frogs recorded from 1995 to 2002.\n\n\n\n",
+    "preview": "posts/2022-02-18-datavisualization/datavisualization_files/figure-html5/unnamed-chunk-4-1.png",
+    "last_modified": "2022-02-18T19:38:02-08:00",
+    "input_file": {}
+  },
+  {
+    "path": "posts/2022-02-18-modelselection/",
+    "title": "Model selection",
+    "description": "An example of model selection",
+    "author": [
+      {
+        "name": "Katie Munster",
+        "url": {}
+      }
+    ],
+    "date": "2022-02-18",
+    "categories": [],
+    "contents": "\nRefer to the Portfolio tab for the corresponding HTML document, which includes additional code.\n\n\nknitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)\n\nlibrary(tidyverse)\nlibrary(here)\nlibrary(kableExtra)\n\n\n\nMultiple linear regression models\n\n\n# Create two multiple linear regression models:\nf1 <- o2sat ~ t_deg_c + salinity + po4u_m\nmdl1 <- lm(f1, data = seawater_samples)\n\nf2 <- o2sat ~ t_deg_c + salinity + po4u_m + depth_m\nmdl2 <- lm(f2, data = seawater_samples)\n\n\n\nUse AIC to select the better model\n\n\n# Use AIC to compare:\naic_table <- AICcmodavg::aictab(list(mdl1, mdl2))\n# Model 2 is the preferred model\n\nrownames(aic_table) <- c(\"Model 2\", \"Model 1\") # rename row names\n\naic_table %>% \n  kable(col.names = c(\"Model Name\",\n                      \"Number of Estimated Parameters\",\n                      \"AICc\",\n                      \"Delta AICc\",\n                      \"Model Likelihood\",\n                      \"Akaike Weights\",\n                      \"Log-likelihood\",\n                      \"Cumulative Akaike Weights\"),\n        caption = \"Table 1: Model selection based on AICc\") %>% \n  kable_styling()\n\n\n\nTable 1: Table 1: Model selection based on AICc\n\n\n\n\nModel Name\n\n\nNumber of Estimated Parameters\n\n\nAICc\n\n\nDelta AICc\n\n\nModel Likelihood\n\n\nAkaike Weights\n\n\nLog-likelihood\n\n\nCumulative Akaike Weights\n\n\nModel 2\n\n\nMod2\n\n\n6\n\n\n616.6048\n\n\n0.000000\n\n\n1.0000000\n\n\n0.7703216\n\n\n-301.8508\n\n\n0.7703216\n\n\nModel 1\n\n\nMod1\n\n\n5\n\n\n619.0251\n\n\n2.420256\n\n\n0.2981592\n\n\n0.2296784\n\n\n-304.1934\n\n\n1.0000000\n\n\nTable 1. Based on the AICc scores, model 2 the preferred model because model 2 has the lowest AICc score and it is lower than the competing model’s AICc score by at least 2 points.\nPerform a 10-fold cross validation on the two models, using root-mean-square error as the scoring method\n\n\n# K-fold cross validation:\nfolds <- 10\nfold_vec <- rep(1:folds, length.out = nrow(seawater_samples)) # repeat through each row until it gets through all 100 observations\ntable(fold_vec)\n\n\nfold_vec\n 1  2  3  4  5  6  7  8  9 10 \n10 10 10 10 10 10 10 10 10 10 \n\nset.seed(123) # so we can get the same random numbers again\n\nseawater_fold <- seawater_samples %>% \n  mutate(group = sample(fold_vec, size = n(), replace = FALSE))\n\n# First fold:\ntest_df <- seawater_fold %>% \n  filter(group ==1)\ntrain_df <- seawater_fold %>% \n  filter(group != 1)\n\n\n\n\n\n# Create the root-mean-square-error function\ncalc_rmse <- function(x, y) {\n  rmse_result <- (x - y)^2 %>% mean() %>% sqrt()\n  return(rmse_result)\n}\n\n\n\n\n\n# Use the training dataset to create linear regression models\ntraining_mdl1 <- lm(f1, data = train_df)\n\ntraining_mdl2 <- lm(f2, data = train_df)\n\n\n\n\n\n# Use the trained models to predict on test data\npredict_test <- test_df %>% \n  mutate(model1 = predict(training_mdl1, test_df),\n         model2 = predict(training_mdl2, test_df))\n\nrmse_predict_test <- predict_test %>% \n  summarize(rmse_mdl1 = calc_rmse(model1, o2sat),\n            rmse_mdl2 = calc_rmse(model2, o2sat))\n\nrmse_predict_test # Model 2 is performing best\n\n\n# A tibble: 1 × 2\n  rmse_mdl1 rmse_mdl2\n      <dbl>     <dbl>\n1      8.92      8.44\n\n\n\n# Loop over all 10 folds and average the results\nrmse_df <- data.frame()\n\nn_iterations <- 5\n\nfor(j in 1:n_iterations) {\n  for(i in 1:folds) {\n    kfold_test_df <- seawater_fold %>% \n      filter(group == i)\n    kfold_train_df <- seawater_fold %>% \n      filter(group != i)\n    kfold_mdl1 <- lm(f1, data = kfold_train_df)\n    kfold_mdl2 <- lm(f2, data = kfold_train_df)\n    \n    kfold_pred_df <- kfold_test_df %>% \n      mutate(mdl1 = predict(kfold_mdl1, kfold_test_df),\n             mdl2 = predict(kfold_mdl2, .))\n    kfold_rmse <- kfold_pred_df %>% \n      summarize(rmse_mdl1 = calc_rmse(mdl1, o2sat),\n                rmse_mdl2 = calc_rmse(mdl2, o2sat))\n    \n    rmse_df <- bind_rows(rmse_df, kfold_rmse)\n  }\n}\n\nrmse_summary <- rmse_df %>% \n  summarize(mean_rmse_mdl1 = mean(rmse_mdl1),\n            mean_rmse_mdl2 = mean(rmse_mdl2))\n# Model 2 looks like the best model again\n\nrmse_summary %>% \n  kable(col.names = c(\"Model 1 Mean RMSE\",\n                      \"Model 2 Mean RMSE\"),\n        caption = \"Table 2: Average RMSE values across all 10 folds\") %>% \n  kable_styling()\n\n\n\nTable 2: Table 2: Average RMSE values across all 10 folds\n\n\nModel 1 Mean RMSE\n\n\nModel 2 Mean RMSE\n\n\n5.040278\n\n\n4.949908\n\n\nTable 2. Based on the average RMSE values resulting from a 10-fold cross validation, model 2 is the better model. Model 2 has a lower mean RMSE value than model 1.\nFinal model\nBased on the above analysis of AICc scores and average RMSE values, model 2 is the preferred model.\n\n\n# Final model:\nfinal_mdl <- lm(f2, data = seawater_samples)\nsummary(final_mdl)\n\n\n\nCall:\nlm(formula = f2, data = seawater_samples)\n\nResiduals:\n     Min       1Q   Median       3Q      Max \n-26.3023  -2.2828  -0.2479   2.1771  19.4459 \n\nCoefficients:\n             Estimate Std. Error t value Pr(>|t|)    \n(Intercept) 144.06686   95.36730   1.511   0.1342    \nt_deg_c      -0.74981    0.40494  -1.852   0.0672 .  \nsalinity     -0.43945    2.98897  -0.147   0.8834    \npo4u_m      -37.71159    2.50113 -15.078   <2e-16 ***\ndepth_m      -0.03196    0.01497  -2.135   0.0354 *  \n---\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1\n\nResidual standard error: 5.08 on 95 degrees of freedom\nMultiple R-squared:  0.9574,    Adjusted R-squared:  0.9557 \nF-statistic: 534.3 on 4 and 95 DF,  p-value: < 2.2e-16\n\nFinal parameterized model:\n\\[\n\\begin{aligned}\n\\operatorname{\\widehat{o2sat}} &= 144.07 - 0.75(\\operatorname{t\\_deg\\_c}) - 0.44(\\operatorname{salinity}) - 37.71(\\operatorname{po4u\\_m})\\ - \\\\\n&\\quad 0.03(\\operatorname{depth\\_m})\n\\end{aligned}\n\\]\n\n\n\n",
+    "preview": {},
+    "last_modified": "2022-02-18T19:43:51-08:00",
+    "input_file": {}
+  },
+  {
+    "path": "posts/2022-02-18-researchpaper/",
+    "title": "Research paper on fisheries management",
+    "description": "How can Ecosystem-Based Fisheries Management (EBFM) contribute to bluefin tuna conservation efforts?",
+    "author": [
+      {
+        "name": "Katie Munster",
+        "url": {}
+      }
+    ],
+    "date": "2022-02-18",
+    "categories": [],
+    "contents": "\nInsert link to PDF\n\n\n\n",
+    "preview": {},
+    "last_modified": "2022-02-18T18:26:15-08:00",
+    "input_file": {}
+  },
+  {
     "path": "posts/2022-01-24-welcome/",
-    "title": "welcome",
-    "description": "A short description of the post.",
+    "title": "Welcome to my personal website!",
+    "description": "Hello! Welcome to my site. Please feel free to reach out and connect.",
     "author": [
       {
         "name": "Katie Munster",
@@ -11,9 +62,9 @@
     ],
     "date": "2022-01-24",
     "categories": [],
-    "contents": "\nDistill is a publication format for scientific and technical writing, native to the web.\nLearn more about using Distill at https://rstudio.github.io/distill.\n\n\n\n",
+    "contents": "\n\n\n\n",
     "preview": {},
-    "last_modified": "2022-01-24T00:45:27-08:00",
+    "last_modified": "2022-02-18T18:20:05-08:00",
     "input_file": {}
   }
 ]

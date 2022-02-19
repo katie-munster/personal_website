@@ -1,0 +1,13 @@
+---
+title: "Research paper on fisheries management"
+description: |
+  How can Ecosystem-Based Fisheries Management (EBFM) contribute to bluefin tuna conservation efforts?
+author:
+  - name: Katie Munster
+date: 2022-02-18
+output:
+  distill::distill_article:
+    self_contained: false
+---
+
+Insert link to PDF

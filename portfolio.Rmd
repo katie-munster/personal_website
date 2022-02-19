@@ -1,0 +1,12 @@
+---
+title: "Portfolio"
+links:
+  - label: Data visualization
+    url: "a1_task1_munster_katie.html"
+  - label: Model selection
+    url: "a1_task2_munster_katie.html"
+output:
+  postcards::trestles
+---
+
+Refer to the corresponding Blog posts for summary details of the code.
