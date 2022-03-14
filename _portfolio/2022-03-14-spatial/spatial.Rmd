@@ -1,0 +1,105 @@
+---
+title: "Spatial data visualization"
+description: |
+  Spatial data wrangling, tmap, and ggplot techniques
+output:
+  distill::distill_article:
+    self_contained: false
+---
+
+### Overview
+
+This report explores oil spill incident tracking data observed across California in 2008. Spatial data wrangling, tmap, and ggplot techniques are used to analyze the data and visualize the oil spill incidents with interactive and static maps.
+
+**Data citation:** Title Oil Spill Incident Tracking [ds394]. Publication date 2009-07-23. Edition 2008 (https://map.dfg.ca.gov/metadata/ds0394.html)
+
+```{r setup, include=TRUE, message = FALSE, warning = FALSE, class.source = 'fold-show'}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+library(tidyverse)
+library(here)
+library(janitor)
+library(broom)
+library(sf)
+library(tmap)
+```
+
+### Spatial data wrangling
+
+```{r}
+## California county outlines (polygons):
+ca_counties_sf <- read_sf(here('data', 'ca_counties', 'CA_Counties_TIGER2016.shp'))
+
+ca_subset_sf <- ca_counties_sf %>% 
+  clean_names() %>% 
+  select(county_name = name, land_area = aland)
+
+ca_counties_df <- ca_counties_sf %>% 
+  clean_names() %>% 
+  as.data.frame() %>% 
+  select(-geometry)
+
+# Examine and set coordinate reference system (CRS):
+#ca_subset_sf %>% 
+#  st_crs()
+# Pseudo-Mercator CRS
+
+#ca_subset_sf %>% 
+#  raster::crs()
+```
+
+```{r}
+# California oil spill incident records (spatial points):
+ca_oil_spills_sf <- read_sf(here('data/ds394', 'ds394.shp')) %>% 
+  clean_names()
+
+# Check CRS:
+#ca_oil_spills_sf %>% st_crs() 
+# this says California Albers. CA counties data above was Pseudo-Mercator
+
+#ca_oil_spills_sf %>% raster::crs() # different projection than data above
+# need to make sure coordinate reference systems match
+
+ca_oil_spills_3857_sf <- st_transform(ca_oil_spills_sf, 3857) #3857 is the EPSG code of the CA counties data
+
+# check new data
+#ca_oil_spills_3857_sf %>% st_crs() 
+# this matches the CRS of the CA counties data
+```
+
+### Tmap interactive map
+
+```{r}
+tmap_mode(mode = 'view')
+tm_shape(ca_subset_sf) + 
+  tm_borders(col = 'black') +
+tm_shape(ca_oil_spills_3857_sf) +
+  tm_dots(col = 'red')
+```
+
+**Figure 1.** This interactive map shows the location of oil spill events observed in California in 2008.
+
+### Choropleth map
+
+```{r}
+# Wrangle to find inland oil spill incidents per county:
+ca_oil_incidents_sf <- ca_subset_sf %>% 
+  st_join(ca_oil_spills_3857_sf)
+
+#head(ca_oil_incidents_sf)
+
+inland_oil_incident_counts_sf <- ca_oil_incidents_sf %>% 
+  filter(inlandmari == "Inland") %>% 
+  group_by(county_name) %>% 
+  summarize(n_records = n())
+
+#head(inland_oil_incident_counts_sf)
+```
+
+```{r}
+ggplot(data = inland_oil_incident_counts_sf) +
+  geom_sf(aes(fill = n_records), color = 'white', size = 0.1) +
+  scale_fill_gradientn(colors = c('lightgrey', 'orange', 'red')) +
+  theme_minimal() +
+  labs(fill = 'Number of inland oil spill incidents per county in 2008')
+```
