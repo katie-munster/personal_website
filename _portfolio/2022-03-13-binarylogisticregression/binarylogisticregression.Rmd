@@ -1,0 +1,403 @@
+---
+title: "Binary logistic regression"
+description: |
+  Binary logistic regression is used to determine the probability of two palmetto species
+output:
+  distill::distill_article:
+    self_contained: false
+    code_folding: show
+---
+
+### Overview
+
+This report explores Florida palmetto data for two species (Serenoa repens and Sabal etonia) and the differences in height, canopy length, canopy width, and green leaves for the two species. Binary logistic regression is used to determine the probability of a plant being either Serenoa repens or Sabal etonia based on predictor variables.
+
+**Data citation:** Abrahamson, W.G. 2019. Survival, growth and biomass estimates of two dominant palmetto species of south-central Florida from 1981 - 2017, ongoing at 5-year intervals ver 1. Environmental Data Initiative. https://doi.org/10.6073/pasta/f2f96ec76fbbd4b9db431c79a770c4d5
+
+```{r setup, include=TRUE, warning = FALSE, message = FALSE, class.source = 'fold-show'}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+library(tidyverse)
+library(here)
+library(GGally)
+library(broom)
+library(jtools)
+library(caret)
+library(AICcmodavg)
+library(patchwork)
+library(cowplot)
+library(kableExtra)
+```
+
+### Data exploration 
+
+```{r}
+# Read in the data:
+palmetto <- read_csv(here("data","palmetto.csv")) %>% 
+  mutate(species_name = case_when( # Add a new column for species name
+    species == 1 ~ "Serenoa repens",
+    species == 2  ~ "Sabal etonia"))
+```
+
+```{r}
+# Exploratory plot:
+#palmetto %>% 
+#  select(height:green_lvs, species_name) %>% 
+#  ggpairs(aes(color = species_name))
+```
+
+```{r}
+# Explore trends in variables:
+plot_greenlvs_height <- ggplot(data = palmetto, aes(x = green_lvs, y = height)) +
+  geom_point(aes(color = species_name)) +
+  facet_wrap(~ species_name) +
+  theme_minimal() +
+  labs(x = "Green leaves count",
+       y = "Plant height\n(cm)",
+       title = "Number of green leaves vs. plant height",
+       color = "Species") +
+  theme(plot.background = element_rect(fill = "white"),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray58"))
+
+plot_greenlvs_length <- ggplot(data = palmetto, aes(x = green_lvs, y = length)) +
+  geom_point(aes(color = species_name)) +
+  facet_wrap(~ species_name) +
+  theme_minimal() +
+  labs(x = "Green leaves count",
+       y = "Canopy length\n(cm)",
+       title = "Number of green leaves vs. canopy length",
+       color = "Species") +
+  theme(plot.background = element_rect(fill = "white"),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray58"))
+
+plot_greenlvs_width <- ggplot(data = palmetto, aes(x = green_lvs, y = width)) +
+  geom_point(aes(color = species_name)) +
+  facet_wrap(~ species_name) +
+  theme_minimal() +
+  labs(x = "Green leaves count",
+       y = "Canopy width\n(cm)",
+       title = "Number of green leaves vs. canopy width",
+       color = "Species") +
+  theme(plot.background = element_rect(fill = "white"),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray58"))
+
+# Serenoa repens tend to have more green leaves than Sabal etonia. Green leaves are likely to help classify species correctly.
+
+plot_length_width <- ggplot(data = palmetto, aes(x = length, y = width)) +
+  geom_point(aes(color = species_name)) +
+  facet_wrap(~ species_name) +
+  theme_minimal() +
+  labs(x = "Canopy length\n(cm)",
+       y = "Canopy width\n(cm)",
+       title = "Canopy length vs. canopy width",
+       color = "Species") +
+  theme(plot.background = element_rect(fill = "white"),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray58"))
+
+plot_length_height <- ggplot(data = palmetto, aes(x = length, y = height)) +
+  geom_point(aes(color = species_name)) +
+  facet_wrap(~ species_name) +
+  theme_minimal() +
+  labs(x = "Canopy length\n(cm)",
+       y = "Plant height\n(cm)",
+       title = "Canopy length vs. plant height",
+       color = "Species") +
+  theme(plot.background = element_rect(fill = "white"),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray58"))
+
+# Sabal etonia tends to have longer canopy length than Serenoa repens.
+
+plot_height_width <- ggplot(data = palmetto, aes(x = height, y = width)) +
+  geom_point(aes(color = species_name)) +
+  facet_wrap(~ species_name) +
+  theme_minimal() +
+  labs(x = "Plant height\n(cm)",
+       y = "Canopy width\n(cm)",
+       title = "Plant height vs. canopy width",
+       color = "Species") +
+  theme(plot.background = element_rect(fill = "white"),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray58"))
+
+# Serenoa repens tend to have taller plant height than Sabal etonia.
+
+```
+
+```{r}
+# Finalized plots:
+plot_greenlvs_height / plot_greenlvs_length / plot_greenlvs_width
+```
+
+**Figure 1.** Serenoa repens tend to have more green leaves than Sabal etonia. Because of this trend, the number of green leaves variable is more likely to help classify species correctly.
+
+```{r}
+# Finalized plots:
+plot_length_width / plot_length_height
+```
+
+**Figure 2.** Sabal etonia tend to have slightly longer canopy length than Serenoa repens. Therefore, the canopy length variable may help classify species correctly.
+
+### Binary logistic regression
+
+```{r}
+# Convert species to factor first
+palmetto_factor <- palmetto %>% 
+  mutate(species = case_when(
+    species == 2 ~ 0, # Made Sabal etonia species 0 (reference level). Serenoa repens is species 1
+    species == 1 ~ 1)) %>% 
+  mutate(species = factor(species)) %>% # Convert to factor
+  drop_na(height, length, width, green_lvs)
+
+# levels(palmetto_factor$species)
+# class(palmetto_factor$species)
+```
+
+```{r}
+# Create model 1:
+f1 <- species ~ height + length + width + green_lvs
+
+blr1_height_length_width_greenlvs <- glm(formula = f1,
+                    data = palmetto_factor,
+                    family = 'binomial')
+```
+
+```{r}
+# Look at the results:
+# blr1_height_length_width_greenlvs
+# summary(blr1_height_length_width_greenlvs)
+# All four variables are statistically significant.
+
+blr1_tidy <- broom::tidy(blr1_height_length_width_greenlvs)
+```
+
+```{r}
+blr1_fitted <- blr1_height_length_width_greenlvs %>% 
+  broom::augment(type.predict = 'response')
+# fitted is the probability that it is a Serenoa repens
+```
+
+```{r}
+# Visualize model 1 outcomes:
+#effect_plot(blr1_height_length_width_greenlvs,
+#            pred = green_lvs,
+#            interval = TRUE,
+#            y.label = "Probability of Serenoa repens")
+# Higher green leaves values will lead to more predictions of Serenoa repens
+
+#effect_plot(blr1_height_length_width_greenlvs,
+#            pred = height,
+#            interval = TRUE,
+#            y.label = "Probability of Serenoa repens")
+# Higher plant height values will lead to more predictions of Serenoa repens
+
+#effect_plot(blr1_height_length_width_greenlvs,
+#            pred = length,
+#            interval = TRUE,
+#            y.label = "Probability of Serenoa repens")
+# Higher canopy length values will lead to more predictions of Sabal etonia
+
+#effect_plot(blr1_height_length_width_greenlvs,
+#            pred = width,
+#            interval = TRUE,
+#            y.label = "Probability of Serenoa repens")
+# Higher canopy width values will lead to more predictions of Sabal etonia
+```
+
+```{r}
+# Create model 2:
+f2 <- species ~ height + width + green_lvs
+
+blr2_height_width_greenlvs <- glm(formula = f2,
+                    data = palmetto_factor,
+                    family = 'binomial')
+```
+
+```{r}
+# Look at the results:
+#blr2_height_width_greenlvs
+#summary(blr2_height_width_greenlvs)
+# Width and green leaves variables are statistically significant, but height is not
+
+blr2_tidy <- broom::tidy(blr2_height_width_greenlvs)
+```
+
+```{r}
+blr2_fitted <- blr2_height_width_greenlvs %>% 
+  broom::augment(type.predict = 'response')
+# fitted is the probability that it is a Serenoa repens
+```
+
+```{r}
+# Visualize model 2 outcomes:
+#effect_plot(blr2_height_width_greenlvs,
+#            pred = green_lvs,
+#            interval = TRUE,
+#            y.label = "Probability of Serenoa repens")
+# Higher green leaves values will lead to more predictions of Serenoa repens
+
+#effect_plot(blr2_height_width_greenlvs,
+#            pred = width,
+#            interval = TRUE,
+#            y.label = "Probability of Serenoa repens")
+# Higher canopy width values will lead to more predictions of Sabal etonia
+
+#effect_plot(blr2_height_width_greenlvs,
+#            pred = height,
+#            interval = TRUE,
+#            y.label = "Probability of Serenoa repens")
+# Plant height values do not as clearly predict species. More confusion
+```
+
+```{r}
+aic_table <- AICcmodavg::aictab(list(blr1_height_length_width_greenlvs, blr2_height_width_greenlvs))
+
+rownames(aic_table) <- c("Model 1 (height, length, width, green leaves)", "Model 2 (height, width, green leaves)") # rename row names
+
+aic_table %>% 
+  kable(col.names = c("Model Name",
+                      "Number of Estimated Parameters",
+                      "AICc",
+                      "Delta AICc",
+                      "Model Likelihood",
+                      "Akaike Weights",
+                      "Log-likelihood",
+                      "Cumulative Akaike Weights"),
+        caption = "Model selection based on AICc") %>% 
+  kable_styling()
+```
+
+**Table 1.** Based on the AICc scores, model 1 the preferred model because model 1 has the lowest AICc score and it is lower than the competing model's AICc score more than 2 points.
+
+```{r}
+# Ten-fold cross validation:
+set.seed(123)
+
+n_folds <- 10
+folds <- rep(1:n_folds, length.out = nrow(palmetto_factor))
+
+palmetto_kfold <- palmetto_factor %>% 
+  mutate(fold = sample(folds, size = n(), replace = FALSE))
+```
+
+```{r}
+# Use prediction accuracy as metric:
+pred_acc <- function(x, y) {
+  accurate <- ifelse(x == y, 1, 0)
+  return(mean(accurate, na.rm = TRUE))
+}
+```
+
+```{r}
+results_df <- data.frame()
+
+for(i in 1:n_folds) {
+  kfold_test <- palmetto_kfold %>% 
+    filter(fold == i)
+  kfold_train <- palmetto_kfold %>% 
+    filter(fold != i)
+  
+  kfold_blr1 <- glm(f1, data = kfold_train, family = 'binomial')
+  kfold_blr2 <- glm(f2, data = kfold_train, family = 'binomial')
+  
+  kfold_pred <- kfold_test %>% 
+    mutate(blr1 = predict(kfold_blr1, kfold_test, type = 'response'),
+           blr2 = predict(kfold_blr2, ., type = 'response')) %>% 
+    mutate(pred1 = ifelse(blr1 > .50, 1, 0),
+           pred2 = ifelse(blr2 > .50, 1, 0))
+  kfold_accuracy <- kfold_pred %>% 
+    summarize(blr1_acc = pred_acc(species, pred1),
+              blr2_acc = pred_acc(species, pred2))
+  
+  results_df <- bind_rows(results_df, kfold_accuracy)
+}
+
+results_df %>% 
+  summarize(blr1_acc = mean(blr1_acc),
+            blr2_acc = mean(blr2_acc)) %>% 
+  kable(col.names = c("Model 1 Accuracy",
+                      "Model 2 Accuracy"),
+        caption = "Model accuracy based on cross validation") %>% 
+  kable_styling()
+```
+
+**Table 2.** Based on the cross validation, model 1 the preferred model due to its higher accuracy. The higher accuracy combined with the lower AICc score supports that model 1 is the better model.
+
+```{r}
+set.seed(123)
+
+tr_ctrl <- trainControl(method = 'repeatedcv', number = 10, repeats = 10)
+
+# Train the model:
+model1 <- train(f1, data = palmetto_factor,
+                method = 'glm', family = 'binomial',
+                trControl = tr_ctrl)
+#model1
+
+model2 <- train(f2, data = palmetto_factor,
+                method = 'glm', family = 'binomial',
+                trControl = tr_ctrl)
+#model2
+```
+
+```{r}
+blr1_tidy %>% 
+  kable(col.names = c("Regression term",
+                      "Estimated value",
+                      "Standard error",
+                      "T-statistic",
+                      "P-value"),
+        caption = "Binary logistic regression results for model 1") %>% 
+  kable_styling()
+```
+
+```{r}
+blr2_tidy %>% 
+   kable(col.names = c("Regression term",
+                      "Estimated value",
+                      "Standard error",
+                      "T-statistic",
+                      "P-value"),
+        caption = "Binary logistic regression results for model 2") %>% 
+  kable_styling()
+```
+
+```{r}
+blr1_fitted <- blr1_fitted %>% 
+  mutate(model_classification = case_when(
+    .fitted >= .5 ~ 1,
+    .fitted < .5 ~ 0)) %>% 
+  mutate(accuracy = case_when(
+    species == model_classification ~ 'Correct',
+    species != model_classification ~ 'Incorrect'
+  ))
+# fitted is the probability that it is a Serenoa repens
+
+count_accuracy <- blr1_fitted %>% 
+  group_by(species) %>% 
+  count(accuracy) %>% 
+  mutate(species = case_when(
+    species == 0 ~ 'Sabal etonia',
+    species == 1 ~ 'Serenoa repens'
+  )) %>% 
+  mutate(percent = case_when(
+    n == 5701 ~ round(n[1]/(n[1]+n[2])*100,2),
+    n == 454 ~ round(n[2]/(n[1]+n[2])*100,2),
+    n == 5548 ~ round(5548/(5548+564)*100,2),
+    n == 564 ~ round(564/(5548+564)*100,2)
+  ))
+
+count_accuracy %>% 
+  kable(col.names = c("Species",
+                      "Accuracy",
+                      "Count",
+                      "Percentage"),
+        caption = "Accuracy of predictions using model 1") %>% 
+  kable_styling()
+```
+
+**Table 5.** Model 1 correctly predicted Sabal etonia species 93% of the time and correctly predicted Serenoa repens 91% of the time. Model 1, which uses plant height, canopy length, canopy width, and number of green leaves as predictor variables, is the preferred model.

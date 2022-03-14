@@ -1,0 +1,168 @@
+---
+title: "Model selection"
+description: |
+  Multiple linear regression models
+output:
+  distill::distill_article:
+    self_contained: false
+---
+
+### Overview
+
+This report explores the relationship between oxygen saturation of seawater off California's coast and water temperature, salinity, phosphate concentration, and depth. Data were recorded by California Cooperative Oceanic Fisheries Investigations (CalCOFI) since 1949. The data is available online in the CalCOFI Hydrographic Database.
+
+**Data citation:** CalCOFI data are available for use without restriction. Data downloaded from https://calcofi.org/ccdata.html. Accessed 1/10/2022.
+
+```{r setup, include = TRUE, warning = FALSE, message = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+library(tidyverse)
+library(here)
+library(kableExtra)
+```
+
+### Data wrangling
+
+Read in the data.
+
+```{r}
+# Read in data:
+seawater_samples <- read_csv(here("data", "calcofi_seawater_samples.csv"))
+```
+
+### Multiple linear regression models
+
+```{r}
+# Create two multiple linear regression models:
+f1 <- o2sat ~ t_deg_c + salinity + po4u_m
+mdl1 <- lm(f1, data = seawater_samples)
+
+f2 <- o2sat ~ t_deg_c + salinity + po4u_m + depth_m
+mdl2 <- lm(f2, data = seawater_samples)
+```
+
+### Use AIC to select the better model
+
+```{r}
+# Use AIC to compare:
+aic_table <- AICcmodavg::aictab(list(mdl1, mdl2))
+# Model 2 is the preferred model
+
+rownames(aic_table) <- c("Model 2", "Model 1") # rename row names
+
+aic_table %>% 
+  kable(col.names = c("Model Name",
+                      "Number of Estimated Parameters",
+                      "AICc",
+                      "Delta AICc",
+                      "Model Likelihood",
+                      "Akaike Weights",
+                      "Log-likelihood",
+                      "Cumulative Akaike Weights"),
+        caption = "Model selection based on AICc") %>% 
+  kable_styling()
+```
+
+**Table 1.** Based on the AICc scores, model 2 the preferred model because model 2 has the lowest AICc score and it is lower than the competing model's AICc score by at least 2 points.
+
+### Perform a 10-fold cross validation on the two models, using root-mean-square error as the scoring method
+
+```{r}
+# K-fold cross validation:
+folds <- 10
+fold_vec <- rep(1:folds, length.out = nrow(seawater_samples)) # repeat through each row until it gets through all 100 observations
+table(fold_vec)
+
+set.seed(123) # so we can get the same random numbers again
+
+seawater_fold <- seawater_samples %>% 
+  mutate(group = sample(fold_vec, size = n(), replace = FALSE))
+
+# First fold:
+test_df <- seawater_fold %>% 
+  filter(group ==1)
+train_df <- seawater_fold %>% 
+  filter(group != 1)
+```
+
+```{r}
+# Create the root-mean-square-error function
+calc_rmse <- function(x, y) {
+  rmse_result <- (x - y)^2 %>% mean() %>% sqrt()
+  return(rmse_result)
+}
+```
+
+```{r}
+# Use the training dataset to create linear regression models
+training_mdl1 <- lm(f1, data = train_df)
+
+training_mdl2 <- lm(f2, data = train_df)
+```
+
+```{r}
+# Use the trained models to predict on test data
+predict_test <- test_df %>% 
+  mutate(model1 = predict(training_mdl1, test_df),
+         model2 = predict(training_mdl2, test_df))
+
+rmse_predict_test <- predict_test %>% 
+  summarize(rmse_mdl1 = calc_rmse(model1, o2sat),
+            rmse_mdl2 = calc_rmse(model2, o2sat))
+
+rmse_predict_test # Model 2 is performing best
+```
+
+```{r}
+# Loop over all 10 folds and average the results
+rmse_df <- data.frame()
+
+n_iterations <- 5
+
+for(j in 1:n_iterations) {
+  for(i in 1:folds) {
+    kfold_test_df <- seawater_fold %>% 
+      filter(group == i)
+    kfold_train_df <- seawater_fold %>% 
+      filter(group != i)
+    kfold_mdl1 <- lm(f1, data = kfold_train_df)
+    kfold_mdl2 <- lm(f2, data = kfold_train_df)
+    
+    kfold_pred_df <- kfold_test_df %>% 
+      mutate(mdl1 = predict(kfold_mdl1, kfold_test_df),
+             mdl2 = predict(kfold_mdl2, .))
+    kfold_rmse <- kfold_pred_df %>% 
+      summarize(rmse_mdl1 = calc_rmse(mdl1, o2sat),
+                rmse_mdl2 = calc_rmse(mdl2, o2sat))
+    
+    rmse_df <- bind_rows(rmse_df, kfold_rmse)
+  }
+}
+
+rmse_summary <- rmse_df %>% 
+  summarize(mean_rmse_mdl1 = mean(rmse_mdl1),
+            mean_rmse_mdl2 = mean(rmse_mdl2))
+# Model 2 looks like the best model again
+
+rmse_summary %>% 
+  kable(col.names = c("Model 1 Mean RMSE",
+                      "Model 2 Mean RMSE"),
+        caption = "Average RMSE values across all 10 folds") %>% 
+  kable_styling()
+```
+
+**Table 2.** Based on the average RMSE values resulting from a 10-fold cross validation, model 2 is the better model. Model 2 has a lower mean RMSE value than model 1.
+
+### Final model
+
+Based on the above analysis of AICc scores and average RMSE values, model 2 is the preferred model.
+
+```{r}
+# Final model:
+final_mdl <- lm(f2, data = seawater_samples)
+summary(final_mdl)
+```
+
+Final parameterized model:
+
+`r equatiomatic::extract_eq(final_mdl, wrap = TRUE, use_coefs = TRUE)`

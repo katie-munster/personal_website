@@ -1,0 +1,102 @@
+---
+title: "Principal component analysis"
+description: |
+  PCA techniques
+output:
+  distill::distill_article:
+    self_contained: false
+---
+
+### Overview
+
+This report explores samples of persistent organic pollutants in fish collected throughout Washington state between 2007 and 2009. The Northwest Fisheries Science Center conducted chemical lab analysis of the fish samples. Principal component analysis techniques are used to analyze the results and show relationships within the data.
+
+**Data citation:** Bolton, Jennie; 02/21/2018. NOAA Fisheries Northwest Fisheries Science Center. POPs and stable isotopes in bird and forage fish tissues: Fish Persistent Organic Pollutants (https://www.webapps.nwfsc.noaa.gov/apex/parrdata/inventory/tables/table/fish_persistent_organic_pollutants)
+
+```{r setup, include=TRUE, warning = FALSE, message = FALSE, class.source = 'fold-show'}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+library(tidyverse)
+library(here)
+library(janitor)
+library(ggfortify)
+```
+
+```{r}
+# Read in the data:
+fish_pollutants <- read_csv(here("data", "fish_persistent_organic_pollutants_data.csv")) %>% 
+  clean_names()
+```
+
+### Principal Component Analysis (PCA)
+
+```{r, class.source = 'fold-show'}
+fish_pollutants_clean <- fish_pollutants %>% 
+  select(-replicate, -ad_clipped, -samplenote) %>%  # remove these columns because mostly only NA data
+  drop_na() # PCA can't run with NA values
+
+fish_pollutants_pca <- fish_pollutants_clean %>% 
+  select(standard_length, body_mass, lipidiatro_sale_format:lipidiatro_pl_format) %>% # PCA can only handle numeric data and focusing on a few pollutants
+  rename(length_mm = standard_length,
+         mass_g = body_mass,
+         lipid_sale = lipidiatro_sale_format,
+         lipid_tg = lipidiatro_tg_format,
+         lipid_ffa = lipidiatro_ffa_format,
+         lipid_chol = lipidiatro_chol_format,
+         lipid_pl = lipidiatro_pl_format) %>% 
+  scale() %>% 
+  prcomp()
+```
+
+#### Biplot
+
+```{r}
+autoplot(fish_pollutants_pca,
+         data = fish_pollutants_clean, 
+         loadings = TRUE,
+         colour = 'species',
+         loadings.label = TRUE,
+         loadings.colour = 'black',
+         loadings.label.colour = 'black',
+         loadings.label.vjust = -.5) +
+  scale_color_manual(values = c('red', 'orange', 'green', 'blue', 'purple', 'pink', 'gray')) +
+  theme_minimal() +
+  labs(title = "Principal Components Analysis",
+       color = "Species")
+```
+
+**Figure 1.** The biplot illustrates correlation between variables. There is strong correlation between fish length (mm) and fish body mass (g) as illustrated by the small angle between the corresponding arrows. As well, the points tend to be grouped by species.
+
+#### Screeplot
+
+```{r}
+sd_vec <- fish_pollutants_pca$sdev
+var_vec <- sd_vec^2
+
+pc_names <- colnames(fish_pollutants_pca$rotation)
+pct_expl_df <- data.frame(v = var_vec,
+                          pct_v = var_vec / sum(var_vec),
+                          pc = fct_inorder(pc_names)) %>% 
+  mutate(pct_lbl = paste0(round(pct_v * 100, 1), '%'))
+
+ggplot(pct_expl_df, aes(x = pc, y = v)) +
+  geom_col(aes(fill = pc)) +
+  geom_text(aes(label = pct_lbl), vjust = 0, nudge_y = .005) +
+  scale_fill_manual(values = c("PC1" = "darkslategray",
+                               "PC2" = "darkslategray4",
+                               "PC3" = "darkslategray3",
+                               "PC4" = "darkslategray2",
+                               "PC5" = "darkslategray1",
+                               "PC6" = "azure2",
+                               "PC7" = "aliceblue")) +
+  labs(x = 'Principal component', y = 'Variance explained', fill = "Principal component") +
+  theme_minimal()
+```
+
+**Figure 2.** The screeplot shows that the first three principal components capture 83.9% of the variance. As such, it would be reasonable to drop PC4, PC5, PC6, and PC7.
+
+### Results
+- Data points tend to be grouped by species.
+- There is high correlation between fish length (mm) and fish body mass (g).
+- There is negative correlation between FFA lipid values (% of total lipid) and TG lipid values (% of total lipid) as well as negative correlation between Chol lipid values (% of total lipid) and TG lipid values (% of total lipid).
+- Principal components 1, 2, and 3 capture about 84% of the variance. It is recommended to drop the other principal components.

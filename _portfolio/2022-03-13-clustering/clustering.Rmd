@@ -1,0 +1,123 @@
+---
+title: "Agglomerative hierarchical clustering"
+description: |
+  Hierarchical cluster analysis (agglomerative), dendrogram, and tanglegram
+output:
+  distill::distill_article:
+    self_contained: false
+---
+
+### Overview
+
+This report explores stream chemistry data in the Santa Barbara Coastal drainage area since 2000. Stream water samples were collected and sampled for nitrogen, phosphorus, carbon, total suspended sediments, and conductivity. Agglomerative hierarchical clustering techniques are used to analyze the water chemistry data by site.
+
+**Data citation:** Santa Barbara Coastal LTER and J. Melack. 2019. SBC LTER: Land: Stream chemistry in the Santa Barbara Coastal drainage area, ongoing since 2000 ver 16. Environmental Data Initiative. https://doi.org/10.6073/pasta/67a558a24ceed9a0a5bf5e46ab841174.
+
+```{r setup, include=TRUE, warning = FALSE, message = FALSE, class.source = 'fold-show'}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+library(tidyverse)
+library(here)
+library(janitor)
+library(NbClust)
+library(cluster)
+library(factoextra)
+library(dendextend)
+library(ggdendro)
+```
+
+### Data wrangling
+
+```{r}
+# Read in the data:
+stream_chemistry <- read_csv(here("data", "sbc_lter_registered_stream_chemistry.csv")) %>% 
+  clean_names() %>% 
+  na_if(-999) # convert -999 values to NA
+
+# Summarize the data per site:
+stream_chemistry_site <- stream_chemistry %>% 
+  group_by(site_code) %>% 
+  drop_na() %>% 
+  summarize(mean_nh4_u_m = mean(nh4_u_m),
+            mean_nho3u_m = mean(no3_u_m),
+            mean_po4_u_m = mean(po4_u_m),
+            mean_tdn_u_m = mean(tdn_u_m),
+            mean_tdp_u_m = mean(tdp_u_m),
+            mean_tpc_u_m = mean(tpc_u_m),
+            mean_tpn_u_m = mean(tpn_u_m),
+            mean_tpp_u_m = mean(tpp_u_m),
+            mean_tss_mgper_liter = mean(tss_mgper_liter),
+            mean_spec_cond_u_spercm = mean(spec_cond_u_spercm))
+```
+
+```{r}
+# summary(stream_chemistry_site) 
+# a lot of variation in the data, so rescale the variables
+
+stream_chemistry_site_scale <- stream_chemistry_site %>% 
+  select(mean_nh4_u_m:mean_spec_cond_u_spercm) %>% # keep the columns containing numeric data
+  scale()
+
+# summary(stream_chemistry_site_scale) 
+# now we have mean of 0 and the range is in line with one another somewhat (about 1 or 2 on either side of the mean)
+```
+
+### Hierarchical cluster analysis (agglomerative)
+
+```{r}
+# Create distance matrix:
+stream_dist <- dist(stream_chemistry_site_scale, method = 'euclidean')
+
+# Hierarchical clustering (complete linkage):
+stream_hc_complete <- hclust(stream_dist, method = 'complete')
+
+# Plot using base plot:
+# plot(stream_hc_complete, cex = 0.6, hang = -1)
+```
+
+```{r}
+# Cut into three clusters:
+stream_cut_hc <- cutree(stream_hc_complete, 3)
+
+# table(stream_cut_hc, stream_chemistry_site$site_code)
+```
+
+### Dendrogram
+
+```{r}
+stream_hc_complete$labels <- c("AB00", "GV01", "MC00", "MC06", "ON02", "RG01")
+ggdendrogram(stream_hc_complete, rotate = TRUE) +
+  theme_minimal() +
+  labs(x = 'Site', y = 'Height')
+```
+
+**Figure 1.** The dendrogram, created using a complete linkage method, shows multivariate clustering for water chemistry by site.
+
+### Tanglegram
+
+```{r}
+# Rerun dendrogram using a single linkage method:
+stream_hc_single <- hclust(stream_dist, method = 'single')
+stream_hc_single$labels <- c("AB00", "GV01", "MC00", "MC06", "ON02", "RG01")
+
+# plot(stream_hc_single, cex = 0.6, hang = -1)
+
+stream_cut_hc_single <- cutree(stream_hc_single, 3)
+
+# table(stream_cut_hc_single, stream_chemistry_site$site_code)
+
+
+dend_complete <- as.dendrogram(stream_hc_complete)
+dend_single <- as.dendrogram(stream_hc_single)
+
+# Compare cluster dendrograms:
+tanglegram(dend_complete, dend_single)
+```
+
+**Figure 2.** The tanglegram illustrates how the different linkage (complete versus single) changes the clustering.
+
+### Results
+- Sites ON02 and GV01 are clustered together based on water chemistry data.
+- Sites MC06, MC00, RG01, and AB00 are clustered together as well.
+- Complete linkage and single linkage methods have different clustering results. With the single linkage method, site 	
+ON02 is clustered separately from the other sites.

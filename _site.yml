@@ -10,10 +10,8 @@ navbar:
       href: index.html
     - text: "About Me"
       href: about_me.html
-    - text: "Portfolio"
-      href: portfolio.html
-    - text: "Blog"
-      href: blog.html
+    - text: "Data portfolio"
+      href: portfolio_final.html
     - text: "CV"
       href: munster_cv.html
 output: distill::distill_article
