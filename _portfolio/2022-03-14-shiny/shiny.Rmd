@@ -1,0 +1,11 @@
+---
+title: "Shiny App"
+description: |
+  Shiny App developed by my team and me to visualize commercially relevant marine species home ranges
+output:
+  distill::distill_article:
+    self_contained: false
+---
+"Visualizing commercially relevant marine species home ranges" by Kort Alexander, Allie Caughman, and Katie Munster
+
+Github link: https://github.com/acaughman/visualize_fish_homeranges

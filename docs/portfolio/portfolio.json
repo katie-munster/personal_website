@@ -36,6 +36,18 @@
     "input_file": {}
   },
   {
+    "path": "portfolio/2022-03-14-shiny/",
+    "title": "Shiny App",
+    "description": "Shiny App developed by my team and me to visualize commercially relevant marine species home ranges",
+    "author": [],
+    "date": "2022-03-14",
+    "categories": [],
+    "contents": "\n“Visualizing commercially relevant marine species home ranges” by Kort Alexander, Allie Caughman, and Katie Munster\nGithub link: https://github.com/acaughman/visualize_fish_homeranges\n\n\n\n",
+    "preview": {},
+    "last_modified": "2022-03-14T00:34:40-07:00",
+    "input_file": {}
+  },
+  {
     "path": "portfolio/2022-03-13-dataviz/",
     "title": "Data visualization",
     "description": "Data visualizations using ggplot",
